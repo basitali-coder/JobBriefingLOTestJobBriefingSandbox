@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>External site title</title>
+    <script src="https://masternaut--rlmqa.sandbox.my.salesforce.com/lightning/lightning.out.latest/index.iife.prod.js"></script>
+    <style>
+        c-test-lightning-out-job-briefing-l-w-c.loaded{
+            height: 70vh !important;
+        }
+    </style>
+</head>
+<body>
+    <h1>External site element 1</h1>    
+    <button id="loginButton">
+        Login with Salesforce
+    </button>
+    
+    <lightning-out-application
+        id="loApp"
+        app-id="1Usbh00000000knCAA"
+        components="c-test-lightning-out-job-briefing-l-w-c">
+    </lightning-out-application>
+    
+    <c-test-lightning-out-job-briefing-l-w-c> </c-test-lightning-out-job-briefing-l-w-c>    
+    <h3>External site element 2</h3>
+    
+    
+    <script>
+    //Main script
+    // Salesforce configuration
+    
+    const SF_DOMAIN =
+        "https://masternaut--rlmqa.sandbox.my.salesforce.com";
+    
+    const CLIENT_ID =
+        "3MVG97IVyarqycDlFA_FFTPnM8sbiBiMbTz7Ag_tStB2eUH_P1obbPnnMHkMz2_R7Y12XnVFday6Xh8EKGfTC";
+        
+    //For serverside call to avoid CORS limitations of salesforce
+    const WORKER_URL =
+        "https://wispy-rice-b3c2.basitali89.workers.dev/";
+    
+    const REDIRECT_URI =
+        window.location.origin + window.location.pathname;
+    // To expand height on load
+    function expandLightningComponent(){
+
+        const component = document.querySelector( "c-test-lightning-out-job-briefing-l-w-c" );       
+        if(component){    
+            component.classList.add("loaded");    
+            console.log("Lightning component expanded");    
+        }
+    }    
+    
+    // Create a random PKCE code verifier
+    
+    function generateVerifier() {
+    
+        const chars =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    
+        let result = "";
+    
+        const random =
+            crypto.getRandomValues( new Uint8Array(64) );
+    
+        random.forEach(x => { result += chars[x % chars.length]; });
+    
+        return result;
+    }
+    
+    // Create the SHA-256 PKCE code challenge
+    
+    async function generateChallenge(verifier) {
+    
+        const data =
+            new TextEncoder().encode(verifier);
+    
+        const hash =
+            await crypto.subtle.digest(  "SHA-256", data);
+    
+        return btoa( String.fromCharCode( ...new Uint8Array(hash) ) ).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+        }
+    
+    // Redirect the user to Salesforce for login
+    
+    document
+    .getElementById("loginButton")
+    .onclick = async function () {
+        const verifier = generateVerifier();
+        sessionStorage.setItem("pkce_verifier", verifier);
+        const challenge =  await generateChallenge(verifier);
+        const loginUrl = SF_DOMAIN + "/services/oauth2/authorize?" +
+            new URLSearchParams({
+                response_type: "code",
+                client_id: CLIENT_ID,
+                redirect_uri: REDIRECT_URI,
+                code_challenge: challenge,
+                code_challenge_method: "S256"
+            });
+        window.location.href = loginUrl;
+    };
+    
+    // Handle the OAuth callback from Salesforce
+    (async function () {
+        // Read the authorization code from the URL
+        const params = new URLSearchParams(window.location.search);
+    
+        const code = params.get("code");
+        if (!code) {
+            return;
+        }
+    
+        // Retrieve the PKCE verifier used during login
+        const verifier = sessionStorage.getItem("pkce_verifier");
+    
+        // Exchange the authorization code for an access token
+        const tokenResponse =
+            await fetch(
+                SF_DOMAIN +
+                "/services/oauth2/token",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/x-www-form-urlencoded"
+                    },
+                    body:
+                        new URLSearchParams({
+    
+                            grant_type: "authorization_code",
+                            client_id: CLIENT_ID,
+                            code: code,
+    
+                            redirect_uri: REDIRECT_URI,
+    
+                            code_verifier: verifier
+    
+                        })
+                }
+            );
+    
+    
+        const token =  await tokenResponse.json();
+        console.log( "Token response",  token);
+    
+        if (!token.access_token) {
+            alert( JSON.stringify(token));
+            return;
+        }
+    
+        // Remove the OAuth code from the browser address bar
+        window.history.replaceState({}, document.title, window.location.pathname);
+    
+        // Get a Lightning Out frontdoor URL from the Cloudflare Worker
+    
+        const fdResponse =
+            await fetch(
+                WORKER_URL,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body:
+                        JSON.stringify({
+                            access_token:
+                                token.access_token
+                        })
+                }
+            );
+    
+    
+        const frontdoor =
+            await fdResponse.json();
+    
+    
+        console.log(
+            "Frontdoor response",
+            frontdoor
+        );
+    
+        // Pass the frontdoor URL to Lightning Out
+    
+        if (frontdoor.frontdoor_uri) {
+            document.getElementById("loApp").frontdoorUrl = frontdoor.frontdoor_uri;
+            // Expand component height after Salesforce session is ready
+            expandLightningComponent();
+        }
+        else {
+            alert(
+                JSON.stringify(frontdoor)
+            );
+        }
+    })();
+
+</script>
+
+</body>
+</html>
