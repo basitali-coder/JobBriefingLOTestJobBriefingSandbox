@@ -2,9 +2,9 @@
 <html>
 <head>
     <title>External site title</title>
-    <script src="https://masternaut--rlmqa.sandbox.my.salesforce.com/lightning/lightning.out.latest/index.iife.prod.js"></script>
+    <script src="https://masternaut--jobbrief.sandbox.my.salesforce.com/lightning/lightning.out.latest/index.iife.prod.js"></script>
     <style>
-        c-test-lightning-out-job-briefing-l-w-c.loaded{
+        c-lightning-out-job-briefing-wrapper.loaded{
             height: 70vh !important;
         }
     </style>
@@ -17,11 +17,11 @@
     
     <lightning-out-application
         id="loApp"
-        app-id="1Usbh00000000knCAA"
-        components="c-test-lightning-out-job-briefing-l-w-c">
+        app-id="1UsR100000000jBKAQ"
+        components="c-lightning-out-job-ing-wrapper">
     </lightning-out-application>
     
-    <c-test-lightning-out-job-briefing-l-w-c> </c-test-lightning-out-job-briefing-l-w-c>    
+    <c-lightning-out-job-briefing-wrapper> </c-lightning-out-job-briefing-wrapper>    
     <h3>External site element 2</h3>
     
     
@@ -30,21 +30,21 @@
     // Salesforce configuration
     
     const SF_DOMAIN =
-        "https://masternaut--rlmqa.sandbox.my.salesforce.com";
+        "https://masternaut--jobbrief.sandbox.my.salesforce.com";
     
     const CLIENT_ID =
-        "3MVG97IVyarqycDlFA_FFTPnM8sbiBiMbTz7Ag_tStB2eUH_P1obbPnnMHkMz2_R7Y12XnVFday6Xh8EKGfTC";
+        "3MVG9V0Szgv_UJrHPwKNQeDp8dAIR_enqcRIomqumwHp51wG5U7wvr1NEnYNdM6HnPxvJ2or9eQQscpRkKQdC";
         
     //For serverside call to avoid CORS limitations of salesforce
     const WORKER_URL =
-        "https://wispy-rice-b3c2.basitali89.workers.dev/";
+        "https://wild-pine-3c65.basit-ali.workers.dev/";
     
     const REDIRECT_URI =
         window.location.origin + window.location.pathname;
     // To expand height on load
     function expandLightningComponent(){
 
-        const component = document.querySelector( "c-test-lightning-out-job-briefing-l-w-c" );       
+        const component = document.querySelector( "c-lightning-out-job-briefing-wrapper" );       
         if(component){    
             component.classList.add("loaded");    
             console.log("Lightning component expanded");    
