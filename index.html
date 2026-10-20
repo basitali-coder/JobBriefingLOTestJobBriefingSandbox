@@ -1,10 +1,11 @@
 <!-- 
-Ver: 2.0
+Ver: 2.1
 Ver Desc:   Uses JWT cert in backend and no secret in front 
 Jira: IS-7275
 Notes:  Enter username should be handled in MMO backend for single sign-on
         Remove debugs/alert for actual implementation
         Repository contains cloudFlareBackend code
+        Case number and flow as input to LO
 -->
 <!DOCTYPE html>
 <html>
@@ -17,18 +18,31 @@ Notes:  Enter username should be handled in MMO backend for single sign-on
         <style>
             c-lightning-out-job-briefing-wrapper.loaded {background-color: #ffffff;
                                                         height: 70vh !important;}
-    
+            #statustext{
+                color:green; 
+                font-weight:500;
+                }    
+            #statusheading{
+                font-weight: 900;
+                margin-left:30px;
+            }
         </style>
     </head>
     
     <body>
-        <button onClick="window.location.reload();">Refresh Page</button>            
+        <button onClick="window.location.reload();">Refresh Page</button> <span id="statusheading">Status: </span><span id='statustext'></span>                  
         <h2>Job Briefing External Site Page - JobBrief Developer Sandbox</h2>
-        <p>Enter salesforce user name and click login to login as. (For testing purpose only with permitted user. Refresh page to change user. This login will be handled automatically from MMO backend.)</p>             
+       <p>Access flow using two step or one step(++) button.Test flows: Case_Job_Brief, Case_Pre_Check_Screen_Flow and Case_Post_Check_Screen_Flow</p>             
         <label for="username">Salesforce username</label>
         <input id="username" type="text" placeholder="user@mcf.com">
+        <label for="casenumber">Case Number</label>
+        <input id="casenumber" type="text" placeholder="C2603-000111" pattern="C[0-9]{4}-[0-9]{6,}">
+        <label for="flowapiname">Flow API Name</label>
+        <input id="flowapiname" type="text" placeholder="Case_Job_Brief">
         <br/><br/>
         <button id="loginButton">Login to Salesforce</button>
+        <button id="loadFlowButton" disabled>Load flow</button>
+        <button id="loadBothSequentially">++Login and load flow++</button>
         <br/>
         <!-- Obtain code from lightning out in salesforce or change app id for different org-->
         <lightning-out-application  id="loApp" app-id="1UsR100000000knKAA" components="c-lightning-out-job-briefing-wrapper"></lightning-out-application>
@@ -36,59 +50,198 @@ Notes:  Enter username should be handled in MMO backend for single sign-on
         
         <script>
             const WORKER_URL = "https://wild-pine-3c65.basit-ali.workers.dev/";
+            const wrapperContainer  = document.querySelector("c-lightning-out-job-briefing-wrapper");
+            const caseNumberInputElement = document.getElementById("casenumber");
+            const loApp =document.getElementById("loApp");
+            let isLOWrapperComponentReady = false;
+            let caseNumberOut = null;
+            let flowApiNameOut = null;
+
+            //Case number validation
+            caseNumberInputElement.addEventListener("invalid", function () {
+                if (this.validity.valueMissing) {
+                    this.setCustomValidity("Please enter a case number.");
+                } else if (this.validity.patternMismatch) {
+                    this.setCustomValidity(
+                        "Please enter a case number in the format C2603-000111."
+                    );
+                } else {
+                    this.setCustomValidity("");
+                }
+            });
+            console.log('change updated on git hub page: change number 14');
+
+            //As per official events provided by salesforce for LO
+            //Tells that Has wrapper component actually loaded?
+            //This makes wrapper component actually ready to listen to insteam data
+            //Checkout more on https://developer.salesforce.com/docs/platform/lwc/guide/lightning-out-architecture.html
+            //
+
+            wrapperContainer.addEventListener("lo.component.ready", (event) => {
+                let statusTextElement = document.getElementById("statustext");
+                statusTextElement.textContent = "LO LWC Wrapper Ready";
+                statusTextElement.style.color = "green";
+                document.getElementById("loadFlowButton").disabled = false;
+                isLOWrapperComponentReady=true;
+                //If caseNumberOut & flowApiNameOut are already set following will dispatch event for LO Wrapper
+                sendCaseNumberAndFlowEvent();
+            });
+            //It also lets us get flow errors that are propogated
+            wrapperContainer.addEventListener("lo.component.error", (event) => {
+                //Displaying & Logging only before loading of component for testing
+                if(!isLOWrapperComponentReady){
+                    console.error("Lightning Out component error:", event.detail);
+                    //document.getElementById("loadFlowButton").disabled = true;
+                    let statusTextElement = document.getElementById("statustext");
+                    statusTextElement.textContent = "Lightning Out component failed or flow has error that is propogated";
+                    statusTextElement.style.color = "red";
+                    }
+            });
+            //This actually confirms lo app is ready
+            loApp.addEventListener('lo.application.ready', () => {
+                console.log('Lightning Out session established successfully');
+                expandLightningComponent();
+            });
+
+            //This can be used for users have no password set in salesforce
+            loApp.addEventListener('lo.application.error', (event) => {
+                console.error('Lightning Out application failed');
+                console.error('Message:', event.detail?.message);
+                console.error('Original error:', event.detail?.originalError);
+
+                // Log the full event details for troubleshooting.
+                console.log('Full error details:', event.detail);
+            });
+            //to do other like redirect error etc...
+            ////
+            document.getElementById("loginButton").onclick = async function () {
+                const username =document.getElementById("username").value.trim();
+                if(!validateLoginInput(username)){
+                    return;
+                }
+                await login(username);
+            };            
+            
+
+            document.getElementById("loadFlowButton").onclick = async function () {
+                const casenumber =document.getElementById("casenumber").value.trim();
+                const flowapiname =document.getElementById("flowapiname").value.trim();
+                if(!validateFlowInputs(casenumber, flowapiname)){ 
+                    return; 
+                }
+                setFlowAndCaseToLOComponent(casenumber, flowapiname);
+            };
+
+            document.getElementById("loadBothSequentially").onclick = async function () {
+                const username =document.getElementById("username").value.trim();
+                const casenumber =document.getElementById("casenumber").value.trim();
+                const flowapiname =document.getElementById("flowapiname").value.trim();
+                if(!validateLoginInput(username)){
+                    return;
+                }
+
+                if(!validateFlowInputs(casenumber, flowapiname)){
+                    return;
+                }
+                await login(username);
+                setFlowAndCaseToLOComponent(casenumber, flowapiname);
+            };
+
+            function validateLoginInput(username){
+                if (!username) {
+                    alert( "Please enter a Salesforce username.");
+                    return false;
+                }
+                return true;
+            }
+
+            function validateFlowInputs(casenumber, flowapiname){
+                if(!casenumber){
+                    alert("Please enter case number in correct format");
+                    return false;
+                }
+
+                if (!caseNumberInputElement.checkValidity()) {
+                    caseNumberInputElement.reportValidity();
+                    return false;
+                }
+                if(!flowapiname){
+                    alert("Please enter Flow API name");
+                    return false;
+                }
+                return true;
+            }
+
+            function setFlowAndCaseToLOComponent(casenumber, flowapiname){
+                flowApiNameOut = flowapiname;
+                caseNumberOut = casenumber;
+                if(!isLOWrapperComponentReady){return};
+                sendCaseNumberAndFlowEvent();
+            }
+
+            function sendCaseNumberAndFlowEvent(){
+                if(flowApiNameOut && caseNumberOut){
+                    wrapperContainer.dispatchEvent(new CustomEvent("loadflow", {detail: {flowApiName: flowApiNameOut,
+                                                                                caseNumber: caseNumberOut
+                                                                                },
+                                                                                bubbles: true,
+                                                                                composed: true}));
+                    let statusTextElement = document.getElementById("statustext");
+                    statusTextElement.textContent = "Requested flow: " + flowApiNameOut + " with Case Number: " + caseNumberOut;
+                    statusTextElement.style.color = "green";                                                            
+                    console.log("Dispatched loadflow event:", JSON.stringify({flowApiName: flowApiNameOut, caseNumber: caseNumberOut}));
+                }
+            }
+
+            async function login(username){
+                try {
+                    const response =
+                        await fetch(WORKER_URL + "/login",
+                            { method: "POST",
+                                headers: {"Content-Type":"application/json"},
+                                body:JSON.stringify({username:username})
+                            }
+                        );
+
+                    const result = await response.json();
+                    console.log("Login response:", response.ok );
+                    
+                    if (!response.ok ||!result.frontdoor_uri) {
+                        //Must be removed for actual deployment 
+                        //To be removed only for debug
+                        alert(JSON.stringify('Debug cloud flare/MMO backend. Check console. Result: '+JSON.stringify(result))
+                        );
+                        console.log(JSON.stringify('Debug cloud flare/MMO backend. Check console. Result: '+JSON.stringify(result)));
+                        return;
+                    }
+
+                    // Using Lightning Out  Salesforce frontdoor URL obtained from backend
+
+                    loApp.setAttribute("frontdoor-url",result.frontdoor_uri);
+                    console.log("Lightning Out frontdoor configured");                    
+
+                    // For demo lock user input
+                    const userInput =document.getElementById("username");
+                    userInput.disabled = true;
+                
+                    const loginButton = document.getElementById("loginButton");
+                    loginButton.disabled = true;
+
+                    const loadBothSequentiallyButton = document.getElementById("loadBothSequentially");
+                    loadBothSequentiallyButton.disabled = true;
+                }
+                catch (error) { 
+                    console.error("Login failed:", error);
+                    alert("Login failed: " + error.message);
+                }
+            }
+
             function expandLightningComponent() {
                 const component = document.querySelector("c-lightning-out-job-briefing-wrapper");
                 if (component) {component.classList.add("loaded");
                     console.log("Lightning component expanded");
                 }
             }
-            
-            document.getElementById("loginButton").onclick = async function () {
-                const username =document.getElementById("username").value.trim();
-                if (!username) {
-                    alert( "Please enter a Salesforce username.");
-                    return;
-                }
-                    try {
-                        const response =
-                            await fetch(WORKER_URL + "/login",
-                                { method: "POST",
-                                 headers: {"Content-Type":"application/json"},
-                                    body:JSON.stringify({username:username})
-                                }
-                            );
-    
-                        const result = await response.json();
-                        console.log("Login response:", response.ok );
-                        
-                        if (!response.ok ||!result.frontdoor_uri) {
-                            //Must be removed for actual deployment 
-                            //To be removed only for debug
-                            alert(JSON.stringify('Debug cloud flare/MMO backend. Check console. Result: '+JSON.stringify(result))
-                            );
-                            console.log(JSON.stringify('Debug cloud flare/MMO backend. Check console. Result: '+JSON.stringify(result)));
-                            return;
-                        }
-    
-                        // Using Lightning Out  Salesforce frontdoor URL obtained from backend
-    
-                        const loApp =document.getElementById("loApp");
-                        loApp.setAttribute("frontdoor-url",result.frontdoor_uri);
-                        console.log("Lightning Out frontdoor configured");
-                        expandLightningComponent();
-
-                        // For demo lock user input
-                        const userInput =document.getElementById("username");
-                        userInput.disabled = true;
-
-                        const loginButton = document.getElementById("loginButton");
-                        loginButton.disabled = true;
-                    }
-                    catch (error) { 
-                        console.error("Login failed:", error);
-                        alert("Login failed: " + error.message);
-                    }
-                };    
         </script>
     </body>
 </html>
