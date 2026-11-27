@@ -30,19 +30,21 @@ Notes:  Enter username should be handled in MMO backend for single sign-on
     </head>
     
     <body>
-        <button onClick="window.location.reload();">Refresh Page</button> <span id="statusheading">Status: </span><span id='statustext'></span>                  
-        <h2>Job Briefing External Site Page - JobBrief Developer Sandbox</h2>
-        <p>Access flow using two step or one step(++) button.Test flows: Case_Job_Brief, Case_Pre_Check_Screen_Flow and Case_Post_Check_Screen_Flow</p>             
+        <button onClick="window.location.reload();" style="display:none">Refresh Page</button> <span id="statusheading" style="display:none">Status: </span><span id='statustext' style="display:none"></span>                  
+        <h2 style="display:none">Job Briefing External Site Page - JobBrief Developer Sandbox</h2>
+        <p style="display:none">Access flow using two step or one step(++) button.Test flows: Case_Job_Brief, Case_Pre_Check_Screen_Flow and Case_Post_Check_Screen_Flow</p>             
         <label for="username">Salesforce username</label>
         <input id="username" type="text" placeholder="user@mcf.com">
+        <br/>        
         <label for="casenumber">Case Number</label>
         <input id="casenumber" type="text" placeholder="C2603-000111" pattern="C[0-9]{4}-[0-9]{6,}">
+        <br/>   
         <label for="flowapiname">Flow API Name</label>
         <input id="flowapiname" type="text" placeholder="Case_Job_Brief">
         <br/><br/>
         <button id="loginButton">Login to Salesforce</button>
         <button id="loadFlowButton" disabled>Load flow</button>
-        <button id="loadBothSequentially">++Login and load flow++</button>
+        <button id="loadBothSequentially">Login and load flow</button>
         <br/>
         <!-- Obtain code from lightning out in salesforce or change app id for different org-->
         <lightning-out-application  id="loApp" app-id="1UsR100000000knKAA" components="c-lightning-out-job-briefing-wrapper"></lightning-out-application>
@@ -78,9 +80,9 @@ Notes:  Enter username should be handled in MMO backend for single sign-on
             //
 
             wrapperContainer.addEventListener("lo.component.ready", (event) => {
-                let statusTextElement = document.getElementById("statustext");
-                statusTextElement.textContent = "LO LWC Wrapper Ready";
-                statusTextElement.style.color = "green";
+                // let statusTextElement = document.getElementById("statustext");
+                // statusTextElement.textContent = "LO LWC Wrapper Ready";
+                // statusTextElement.style.color = "green";
                 document.getElementById("loadFlowButton").disabled = false;
                 isLOWrapperComponentReady=true;
                 //If caseNumberOut & flowApiNameOut are already set following will dispatch event for LO Wrapper
@@ -92,9 +94,9 @@ Notes:  Enter username should be handled in MMO backend for single sign-on
                 if(!isLOWrapperComponentReady){
                     console.error("Lightning Out component error:", event.detail);
                     //document.getElementById("loadFlowButton").disabled = true;
-                    let statusTextElement = document.getElementById("statustext");
-                    statusTextElement.textContent = "Lightning Out component failed or flow has error that is propogated";
-                    statusTextElement.style.color = "red";
+                    // let statusTextElement = document.getElementById("statustext");
+                    // statusTextElement.textContent = "Lightning Out component failed or flow has error that is propogated";
+                    // statusTextElement.style.color = "red";
                     }
             });
             //This actually confirms lo app is ready
@@ -113,13 +115,13 @@ Notes:  Enter username should be handled in MMO backend for single sign-on
                 console.log('Full error details:', event.detail);
             });
             ////
-            document.getElementById("loginButton").onclick = async function () {
-                const username =document.getElementById("username").value.trim();
-                if(!validateLoginInput(username)){
-                    return;
-                }
-                await login(username);
-            };            
+            // document.getElementById("loginButton").onclick = async function () {
+            //     const username =document.getElementById("username").value.trim();
+            //     if(!validateLoginInput(username)){
+            //         return;
+            //     }
+            //     await login(username);
+            // };            
             
 
             document.getElementById("loadFlowButton").onclick = async function () {
@@ -185,9 +187,9 @@ Notes:  Enter username should be handled in MMO backend for single sign-on
                                                                                 },
                                                                                 bubbles: true,
                                                                                 composed: true}));
-                    let statusTextElement = document.getElementById("statustext");
-                    statusTextElement.textContent = "Requested flow: " + flowApiNameOut + " with Case Number: " + caseNumberOut;
-                    statusTextElement.style.color = "green";                                                            
+                    // let statusTextElement = document.getElementById("statustext");
+                    // statusTextElement.textContent = "Requested flow: " + flowApiNameOut + " with Case Number: " + caseNumberOut;
+                    // statusTextElement.style.color = "green";                                                            
                     console.log("Dispatched loadflow event:", JSON.stringify({flowApiName: flowApiNameOut, caseNumber: caseNumberOut}));
                 }
             }
@@ -223,8 +225,8 @@ Notes:  Enter username should be handled in MMO backend for single sign-on
                     const userInput =document.getElementById("username");
                     userInput.disabled = true;
                 
-                    const loginButton = document.getElementById("loginButton");
-                    loginButton.disabled = true;
+                    // const loginButton = document.getElementById("loginButton");
+                    // loginButton.disabled = true;
 
                     const loadBothSequentiallyButton = document.getElementById("loadBothSequentially");
                     loadBothSequentiallyButton.disabled = true;
